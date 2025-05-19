@@ -2,23 +2,24 @@ pipeline {
     agent any
 
     environment {
-        // Use YOUR Docker Hub username here
-        DOCKER_HUB = 'amanrgv/hu-2025-docker-jenkins-draghav'  
+
+        DOCKER_USER = 'amanrgv'  
+        REPO_NAME = 'hu-2025-docker-jenkins-draghav'
         IMAGE_NAME = 'sample-app'
-        TAG = 'latest'
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                checkout scm  // This automatically uses the repo configured in Jenkins
+                checkout scm
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Image') {
             steps {
                 script {
-                    dockerImage = docker.build("${DOCKER_HUB}/${IMAGE_NAME}:${TAG}")
+                    // Correct image naming format
+                    docker.build("${DOCKER_USER}/${REPO_NAME}:latest") 
                 }
             }
         }
@@ -27,7 +28,7 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
-                        dockerImage.push()
+                        docker.image("${DOCKER_USER}/${REPO_NAME}:latest").push()
                     }
                 }
             }
