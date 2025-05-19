@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // Use YOUR Docker Hub username here
-        DOCKER_HUB = 'hu-2025-docker-jenkins-draghav'  
+        DOCKER_HUB = 'amanrgv/hu-2025-docker-jenkins-draghav'  
         IMAGE_NAME = 'sample-app'
         TAG = 'latest'
     }
