@@ -27,6 +27,15 @@ pipeline {
             }
         }
 
+        stage('Test') {
+            steps {
+                script {
+                    sh 'docker run --rm ${DOCKER_USER}/${REPO_NAME}:latest curl -s localhost | grep "Hello"'
+                    echo "Test passed - the html contained 'Hello'"
+                }
+            }
+        }
+
         stage('Push to Docker Hub') {
             steps {
                 script {
