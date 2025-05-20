@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    trigger {
+        cron('H/5 * * * *') 
+    }
+
     environment {
 
         DOCKER_USER = 'amanrgv'  
@@ -21,7 +25,7 @@ pipeline {
                     // Correct image naming format
                     docker.build("${DOCKER_USER}/${REPO_NAME}:latest") 
                 }
-            }
+            }-
         }
 
         stage('Push to Docker Hub') {
