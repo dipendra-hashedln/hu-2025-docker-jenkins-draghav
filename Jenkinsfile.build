@@ -1,5 +1,4 @@
 properties([
-
     parameters([
         credentials(
             name: 'DOCKER_CREDS',
@@ -35,11 +34,9 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    // Use docker.withRegistry for reliable Docker Hub authentication and push
                     docker.withRegistry('https://registry.hub.docker.com', params.DOCKER_CREDS) {
                         docker.image("amanrgv/hu-2025-docker-jenkins-draghav:latest").push()
                     }
-                    // Trigger downstream pipeline
                     build job: 'hu-2025-deploy-pipeline', wait: false
                 }
             }
@@ -49,6 +46,25 @@ pipeline {
     post {
         always {
             script {
+                // Determine Event and Actor
+                def cause = currentBuild.getBuildCauses()[0]
+                def event
+                def actor
+
+                if (cause.shortDescription.contains('Started by user')) {
+                    event = 'User-initiated'
+                    actor = cause.userId ?: 'Unknown User'
+                } else if (cause.shortDescription.contains('Started by timer')) {
+                    event = 'Cron-triggered'
+                    actor = 'Cron'
+                } else if (cause.shortDescription.contains('Started by an SCM change')) {
+                    event = 'SCM-triggered'
+                    actor = 'SCM'
+                } else {
+                    event = 'Unknown'
+                    actor = 'Unknown'
+                }
+
                 def color = currentBuild.currentResult == 'SUCCESS' ? '00FF00' : 'FF0000'
 
                 // Define the JSON payload for Teams notification
@@ -61,7 +77,9 @@ pipeline {
                         "activityTitle": "Pipeline Notification",
                         "facts": [
                             {"name": "Status", "value": "${currentBuild.currentResult}"},
-                            {"name": "Build ID", "value": "${env.BUILD_NUMBER}"}
+                            {"name": "Build ID", "value": "${env.BUILD_NUMBER}"},
+                            {"name": "Event", "value": "${event}"},
+                            {"name": "Actor", "value": "${actor}"}
                         ]
                     }]
                 }
