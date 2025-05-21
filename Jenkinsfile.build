@@ -1,7 +1,8 @@
 properties([
+
     parameters([
         credentials(
-            name: 'DOCKER_CREDS', 
+            name: 'DOCKER_CREDS',
             credentialType: 'usernamePassword',
             defaultValue: 'docker-hub-credentials'
         ),
@@ -34,48 +35,47 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
+                    // Use docker.withRegistry for reliable Docker Hub authentication and push
                     docker.withRegistry('https://registry.hub.docker.com', params.DOCKER_CREDS) {
                         docker.image("amanrgv/hu-2025-docker-jenkins-draghav:latest").push()
                     }
+                    // Trigger downstream pipeline
                     build job: 'hu-2025-deploy-pipeline', wait: false
                 }
             }
         }
     }
 
-    //this is my code section for webhook
-
     post {
         always {
             script {
-                def webhook = credentials(params.TEAMS_WEBHOOK)
                 def color = currentBuild.currentResult == 'SUCCESS' ? '00FF00' : 'FF0000'
-                def facts = [
-                    [name: 'Status', value: currentBuild.currentResult],
-                    [name: 'Build ID', value: env.BUILD_NUMBER],
-                    [name: 'Duration', value: currentBuild.durationString.replace(' and counting', '')]
-                ]
 
+                // Define the JSON payload for Teams notification
                 def payload = """
                 {
                     "@type": "MessageCard",
-                    "@context": "http://schema.org/extensions",
-                    "themeColor": "${color}",
                     "summary": "Build ${currentBuild.currentResult}",
+                    "themeColor": "${color}",
                     "sections": [{
                         "activityTitle": "Pipeline Notification",
-                        "facts": ${groovy.json.JsonOutput.toJson(facts)},
-                        "markdown": true
+                        "facts": [
+                            {"name": "Status", "value": "${currentBuild.currentResult}"},
+                            {"name": "Build ID", "value": "${env.BUILD_NUMBER}"}
+                        ]
                     }]
                 }
-                """
+                """.stripIndent()
 
-                sh(script: """
-                    curl -X POST \
-                    -H 'Content-Type: application/json' \
-                    -d '${payload}' \
-                    ${webhook}
-                """)
+                // Write the payload to a file
+                writeFile file: 'teams_payload.json', text: payload
+
+                // Use withCredentials to securely handle the webhook URL
+                withCredentials([string(credentialsId: params.TEAMS_WEBHOOK, variable: 'WEBHOOK_URL')]) {
+                    sh """
+                        curl -X POST -H 'Content-Type: application/json' --data-binary @teams_payload.json '${WEBHOOK_URL}'
+                    """
+                }
             }
         }
     }
