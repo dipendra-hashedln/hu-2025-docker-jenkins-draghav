@@ -1,9 +1,21 @@
+properties([
+    parameters([
+        credentials(
+            name: 'DOCKER_CREDS', 
+            credentialType: 'usernamePassword',
+            defaultValue: 'docker-hub-credentials'
+        ),
+        credentials(
+            name: 'TEAMS_WEBHOOK',
+            credentialType: 'string',
+            defaultValue: 'teams-webhook-url'
+        )
+    ])
+])
+
 pipeline {
     agent any
-    environment {
-        DOCKER_USER = 'amanrgv'
-        REPO_NAME = 'hu-2025-docker-jenkins-draghav'
-    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -11,27 +23,57 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build') {
             steps {
                 script {
-                    docker.build("${DOCKER_USER}/${REPO_NAME}:latest")
+                    docker.build("amanrgv/hu-2025-docker-jenkins-draghav:latest")
                 }
             }
         }
 
-        stage('Push to Docker Hub') {
+        stage('Deploy') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
-                        docker.image("${DOCKER_USER}/${REPO_NAME}:latest").push()
+                    docker.withRegistry('https://registry.hub.docker.com', params.DOCKER_CREDS) {
+                        docker.image("amanrgv/hu-2025-docker-jenkins-draghav:latest").push()
                     }
+                    build job: 'hu-2025-deploy-pipeline', wait: false
                 }
             }
         }
+    }
 
-        stage('Trigger Deploy Pipeline') {
-            steps {
-                build job: 'deploy-pipeline'
+    post {
+        always {
+            script {
+                def webhook = credentials(params.TEAMS_WEBHOOK)
+                def color = currentBuild.currentResult == 'SUCCESS' ? '00FF00' : 'FF0000'
+                def facts = [
+                    [name: 'Status', value: currentBuild.currentResult],
+                    [name: 'Build ID', value: env.BUILD_NUMBER],
+                    [name: 'Duration', value: currentBuild.durationString.replace(' and counting', '')]
+                ]
+
+                def payload = """
+                {
+                    "@type": "MessageCard",
+                    "@context": "http://schema.org/extensions",
+                    "themeColor": "${color}",
+                    "summary": "Build ${currentBuild.currentResult}",
+                    "sections": [{
+                        "activityTitle": "Pipeline Notification",
+                        "facts": ${groovy.json.JsonOutput.toJson(facts)},
+                        "markdown": true
+                    }]
+                }
+                """
+
+                sh(script: """
+                    curl -X POST \
+                    -H 'Content-Type: application/json' \
+                    -d '${payload}' \
+                    ${webhook}
+                """)
             }
         }
     }
