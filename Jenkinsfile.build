@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_USER = 'amanrgv'
+        REPO_NAME = 'hu-2025-docker-jenkins-draghav'
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build("${DOCKER_USER}/${REPO_NAME}:latest")
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
+                        docker.image("${DOCKER_USER}/${REPO_NAME}:latest").push()
+                    }
+                }
+            }
+        }
+
+        stage('Trigger Deploy Pipeline') {
+            steps {
+                build job: 'deploy-pipeline'
+            }
+        }
+    }
+}

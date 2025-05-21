@@ -1,0 +1,20 @@
+pipeline {
+    agent any
+    environment {
+        DOCKER_USER = 'amanrgv'
+        REPO_NAME = 'hu-2025-docker-jenkins-draghav'
+    }
+    stages {
+        stage('Deploy Container') {
+            steps {
+                script {
+                    sh '''
+                    docker rm -f deployed-container || true
+                    docker pull ${DOCKER_USER}/${REPO_NAME}:latest
+                    docker run -d --name deployed-container -p 8082:80 ${DOCKER_USER}/${REPO_NAME}:latest
+                    '''
+                }
+            }
+        }
+    }
+}
