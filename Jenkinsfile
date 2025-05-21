@@ -1,6 +1,6 @@
 pipeline {
     agent any
-    triggers { cron('H/5 * * * *') }
+   // triggers { cron('H/5 * * * *') }
     environment {
         DOCKER_USER = 'amanrgv'
         REPO_NAME = 'hu-2025-docker-jenkins-draghav'
